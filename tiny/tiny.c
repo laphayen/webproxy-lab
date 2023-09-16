@@ -29,13 +29,14 @@ int main(int argc, char **argv) {
   }
 
   listenfd = Open_listenfd(argv[1]);
+
   while (1) {
     clientlen = sizeof(clientaddr);
-    connfd = Accept(listenfd, (SA *)&clientaddr,
-                    &clientlen);  // line:netp:tiny:accept
-    Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE,
-                0);
+    connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // line:netp:tiny:accept
+    /* Getnameinfo를 호출하면서 hostname과 port가 반환 됨 */
+    Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
+
     doit(connfd);   // line:netp:tiny:doit
     Close(connfd);  // line:netp:tiny:close
   }
@@ -50,7 +51,7 @@ void doit(int fd)
   char filename[MAXLINE], cgiargs[MAXLINE];
   rio_t rio;
 
-  Rio_readinitb(&rio, fd);
+  Rio_readinitb(&rio, fd); 
   // 요청 라인을 읽고 분석한다.
   Rio_readlineb(&rio, buf, MAXLINE);
   printf("Request headers: \n");
@@ -96,14 +97,14 @@ void doit(int fd)
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't run the CGI program");
       return;
     }
-    // 진행해서 동적 컨텐츠를 제공한다.
-    serve_dynamic(fd, filename, cgiargs);
+    // 진행해서 동적 컨텐츠를 클라이언트에게 제공한다.
+    serve_dynamic(fd, filename, sbuf.st_size);
   }
 }
-
 // HTTP 응답을 응답 라인에 적절한 상태 코드와 상태 메시지와 함께 클라이언트에게 전송
 // 브라우저 사용자에게 에러를 설명하는 응답 본체에 HTML 파일도 보낸다.
-void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg){
+void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg)
+{
   char buf[MAXLINE], body[MAXBUF];
 
   sprintf(body, "<html><title>Tiny Error</title>");
@@ -111,7 +112,6 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
   sprintf(body, "%s%s: %s\r\n", body, errnum, shortmsg);
   sprintf(body, "%s<p>%s: %s\r\n", body, longmsg, cause);
   sprintf(body, "%s<hr><em>The Tiny Web server</em>\r\n", body);
-
 
   sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, shortmsg);
   Rio_writen(fd, buf, strlen(buf));
@@ -138,7 +138,8 @@ void read_requesthdrs(rio_t *rp)
 }
 
 // HTTP URI를 분석한다.
-int parse_uri(char *uri, char * filename, char *cgiargs){
+int parse_uri(char *uri, char * filename, char *cgiargs)
+{
   char *ptr;
   
   /* 과제 요건사항 : cgi-bin은 동적파일로 분류하자 */
@@ -174,7 +175,6 @@ void serve_static(int fd, char *filename, int filesize)
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
   
-
   get_filetype(filename, filetype);
   sprintf(buf, "HTTP/1.0 200 OK\r\n");
   sprintf(buf, "%sServer: Tiny Web Server\r\n", buf);
@@ -189,7 +189,7 @@ void serve_static(int fd, char *filename, int filesize)
   srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
   Close(srcfd);
   Rio_writen(fd, srcp, filesize);
-  Munmap(srcfd, filename);
+  Munmap(srcp, filesize);
 }
 
 void get_filetype(char * filename, char *filetype)
@@ -210,7 +210,7 @@ void get_filetype(char * filename, char *filetype)
 
 void serve_dynamic(int fd, char *filename, char *cgiargs)
 {
-  char buf[MAXLINE], *emptylist[] = {NULL};
+  char buf[MAXLINE], *emptylist[] = { NULL };
 
   sprintf(buf, "HTTP/1.0 200 OK\r\n");
   Rio_writen(fd, buf, strlen(buf));
