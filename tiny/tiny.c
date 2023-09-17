@@ -241,6 +241,8 @@ void serve_static(int fd, char *filename, int filesize, char *method)
 {
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
+  // 11.9
+  rio_t rio;
   
   // 파일 이름을 기반으로 MIME 유형을 결정
   // filetype 변수에 저아
@@ -260,17 +262,34 @@ void serve_static(int fd, char *filename, int filesize, char *method)
   printf("Response headers: \n");
   printf("%s", buf);
 
+  // 11.11
+  // HTTP HEAD 메소드 처리
+  if (strcasecmp(method, "HEAD") == 0)
+  {
+    return;
+  }
+
   // 요청된 파일을 읽기 전용으로 열고 읽는다.
   // srcfd 파일 디스크립터를 통해 열린다.
   srcfd = Open(filename, O_RDONLY, 0);
   // 파일 내용을 메모리로 매핑
   // 메모리 매핑 포인터인 srcp를 얻는다.
-  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+
+  // 11.9
+  // 파일 메모리 할당
+  srcp = (char*)malloc(filesize);
+  // 버퍼 초기화 함수
+  Rio_readinitb(&rio, srcfd);
+  // 읽기
+  // 파일 fd에서 n바이트 크기를 읽어온다.
+  Rio_readn(srcfd, srcp, filesize);
   Close(srcfd);
   // 파일 내용을 클라이언트에게 전송 - 파일 내용을 클라이언트에게 쓰고, 파일 크기만큼 전송
   Rio_writen(fd, srcp, filesize);
   // 파일 내용을 클라이언트에게 성공적으로 전송한 후, 메모리 매핑을 해제하고 파일을 닫는다.
-  Munmap(srcp, filesize);
+  // 11.9
+  // 할당 메모리 해제
+  free(srcp); 
 }
 
 // 동적 컨텐츠 처리하고 CGI 실행하여 결과를 클라이언트에게 전달하는 역할
