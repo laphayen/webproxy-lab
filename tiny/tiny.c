@@ -9,17 +9,12 @@
 
 #include "csapp.h"
 
-// 11.8serve_dynamic
-#include <signal.h>
-
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-// 11.11
-void serve_static(int fd, char *filename, int filesize, char *method);
+void serve_static(int fd, char *filename, int filesize);
 void get_filetype(char *filename, char *filetype);
-// 11.11
-void serve_dynamic(int fd, char *filename, char *cgiargs, char *method);
+void serve_dynamic(int fd, char *filename, char *cgiargs);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 
 int main(int argc, char **argv) {
@@ -63,12 +58,6 @@ int main(int argc, char **argv) {
 // 한 개의 HTTP 트랜잭션을 처리한다.
 void doit(int fd)
 {
-  // 11.8
-  // SIGPIPE - 파이프, 소켓에 쓰려고 할 때 다른 쪽에서 닫힐 경우 전송되는 신호 운영체제가 프로세스에게 데이터를 전송할 수 없을을 알리는 방법
-  // 수신측 더 이상 수신x SIGPIPE 신호가 수신 시 동작을 나타내는 상수, 
-  // 해당 프로세스가 해당 신호를 수신 시 무시하도록 설정 프로세스가 닫힌 파이프 또는 소켓에 쓰려고 시도 시 종료X
-  signal(SIGPIPE, SIG_IGN);
-
   int is_static;
   struct stat sbuf;
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
@@ -82,7 +71,6 @@ void doit(int fd)
   Rio_readlineb(&rio, buf, MAXLINE);
   printf("Request headers: \n");
   printf("%s", buf);
-  // 버퍼 문자열에서 method, uri, version을 읽는다.
   sscanf(buf, "%s %s %s", method, uri, version);
   // Tiny는 HTTP 메소드 중 GET 메소드만 지원
   // 클라이언트가 다른 메소드를 요청 시, 에러 메시지 전송 후 메인으로 돌아오고, 그 후 연결을 닫고 다음 연결 요청을 기다린다.
@@ -115,7 +103,7 @@ void doit(int fd)
       return;
     }
     // 정적 컨텐츠를 클라이언트에게 제공한다.
-    serve_static(fd, filename, sbuf.st_size, method);
+    serve_static(fd, filename, sbuf.st_size);
   }
   else
   {
@@ -126,7 +114,7 @@ void doit(int fd)
       return;
     }
     // 동적 컨텐츠를 클라이언트에게 제공한다.
-    serve_dynamic(fd, filename, sbuf.st_size, method);
+    serve_dynamic(fd, filename, sbuf.st_size);
   }
 }
 
@@ -136,17 +124,14 @@ void doit(int fd)
 // fd, 에러 원인 설명, HTTP 응답코드, 간단한 상태 메시지, 긴 설명 메시지
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg)
 {
-  // HTTP 응답 헤더, HTML 응답 본문 문자열
   char buf[MAXLINE], body[MAXBUF];
 
-  // 응답 본문 
   sprintf(body, "<html><title>Tiny Error</title>");
   sprintf(body, "%s<body bgcolor=""fffff"">\r\n", body);
   sprintf(body, "%s%s: %s\r\n", body, errnum, shortmsg);
   sprintf(body, "%s<p>%s: %s\r\n", body, longmsg, cause);
   sprintf(body, "%s<hr><em>The Tiny Web server</em>\r\n", body);
 
-  // 응답 출력
   sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, shortmsg);
   Rio_writen(fd, buf, strlen(buf));
   sprintf(buf, "Content-type: text/html\r\n");
@@ -237,12 +222,10 @@ void get_filetype(char * filename, char *filetype)
 // 정적 파일을 클라이언트에게 제공하는 역할
 // 파일 이름과 크기에 따라 HTTP 응답 헤더를 생성하고
 // 파일 내용을 클라이언트에게 전송한다.
-void serve_static(int fd, char *filename, int filesize, char *method)
+void serve_static(int fd, char *filename, int filesize)
 {
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
-  // 11.9
-  rio_t rio;
   
   // 파일 이름을 기반으로 MIME 유형을 결정
   // filetype 변수에 저아
@@ -262,38 +245,21 @@ void serve_static(int fd, char *filename, int filesize, char *method)
   printf("Response headers: \n");
   printf("%s", buf);
 
-  // 11.11
-  // HTTP HEAD 메소드 처리
-  if (strcasecmp(method, "HEAD") == 0)
-  {
-    return;
-  }
-
   // 요청된 파일을 읽기 전용으로 열고 읽는다.
   // srcfd 파일 디스크립터를 통해 열린다.
   srcfd = Open(filename, O_RDONLY, 0);
   // 파일 내용을 메모리로 매핑
   // 메모리 매핑 포인터인 srcp를 얻는다.
-
-  // 11.9
-  // 파일 메모리 할당
-  srcp = (char*)malloc(filesize);
-  // 버퍼 초기화 함수
-  Rio_readinitb(&rio, srcfd);
-  // 읽기
-  // 파일 fd에서 n바이트 크기를 읽어온다.
-  Rio_readn(srcfd, srcp, filesize);
+  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
   Close(srcfd);
   // 파일 내용을 클라이언트에게 전송 - 파일 내용을 클라이언트에게 쓰고, 파일 크기만큼 전송
   Rio_writen(fd, srcp, filesize);
   // 파일 내용을 클라이언트에게 성공적으로 전송한 후, 메모리 매핑을 해제하고 파일을 닫는다.
-  // 11.9
-  // 할당 메모리 해제
-  free(srcp); 
+  Munmap(srcp, filesize);
 }
 
 // 동적 컨텐츠 처리하고 CGI 실행하여 결과를 클라이언트에게 전달하는 역할
-void serve_dynamic(int fd, char *filename, char *cgiargs, char *method)
+void serve_dynamic(int fd, char *filename, char *cgiargs)
 {
   char buf[MAXLINE], *emptylist[] = { NULL };
 
@@ -306,8 +272,6 @@ void serve_dynamic(int fd, char *filename, char *cgiargs, char *method)
   if(Fork() == 0){
     // QUERY_STRING 환경 변수를 설정 - CGI 프로그램에게 클라이언트로부터 전달된 CGI인자 전달
     setenv("QUERY_STRING", cgiargs, 1);
-    // 11.11
-    setenv("REQUEST_METHOD", method, 1);
     // 자식 프로세스의 표준출력을 클라이언트 소켓 파일 디스크립터(fd)로 리디렉션
     // CGI 프로그램 출력이 클라이언트 전송
     Dup2(fd, STDOUT_FILENO);
