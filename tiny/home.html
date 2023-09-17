@@ -1,9 +1,24 @@
 <html>
-<head><title>test</title></head>
+<head>
+	<title>test</title>
+	<!-- 11.10 -->
+	<script>
+        function adder() {
+        	let arg1 = document.getElementById("first").value;
+            let arg2 = document.getElementById("second").value;
+            document.location.href=`./cgi-bin/adder?${arg1}&${arg2}`; 
+        }
+    </script>
+</head>
 <body> 
 	<img align="middle" src="godzilla.gif">
-  <!-- 11.7 mp4 파일 처리 -->
+	<!-- 11.7 -->
 	<video src="video.mp4" controls loop autoplay></video>
-	Dave O'Hallaron
+	<!-- 11.10 -->
+	<form>
+    	<input type="number" id="first" />
+        <input type="number" id="second" />
+        <input type="button" value="Submit" onclick="adder()" />
+    </form>
 </body>
 </html>
