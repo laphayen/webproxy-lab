@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>adder</title>
+    <script>
+        function adder() {
+            var num1 = document.getElementById("first").value;
+            var num2 = document.getElementById("second").value;
+            window.location.href = "cgi-bin/adder?"+num1+"&"+num2;
+        }
+    </script>
+</head>
+<body>
+    <input id="first"></input>
+    <input id="second"></input>
+    <button onclick="adder()">go</button> 
+</body>
+</html>
