@@ -40,7 +40,7 @@ void cache_uri(char *uri, char *buf);
 void readerPre(int i);
 void readerAfter(int i);
 
-typedef struct 
+typedef struct
 {
   char cache_obj[MAX_OBJECT_SIZE];
   char cache_url[MAXLINE];
@@ -56,6 +56,7 @@ typedef struct
 typedef struct
 {
   cache_block cacheobjs[CACHE_OBJS_COUNT];
+  int cache_num;
 }Cache;
 
 Cache cache;
@@ -71,14 +72,14 @@ int main(int argc, char **argv) {
   // 소켓 구조체 - clientaddress
   struct sockaddr_storage clientaddr;
 
-  cache_init(); 
+  cache_init();
 
   /* Check command line args */
   // 명령줄 인수를 확인하여 서버가 사용할 포트 번호를 결정
   // 포트 번호를 받지 않으면 사용법을 출력하고 프로그램을 종료
   // 입력인자가 2개인지 확인
   if (argc != 2) {
-    fprintf(stderr, "usage: %s <port>\n", argv[0]);
+    fprintf(stderr, "usage: %s <port> \n", argv[0]);
     exit(1);
   }
 
@@ -99,7 +100,7 @@ int main(int argc, char **argv) {
     // Getnameinfo를 호출하여 클라이언트의 IP 주소를
     // 호스트 이름과 포트 번호로 변환하고, 호스트 이름과 포트 번호를 출력
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
-    printf("Accepted connection from (%s, %s)\n", hostname, port);
+    printf("Accepted connection from (%s %s).\n", hostname, port);
 
     // 쓰레드 식별자, 쓰레드 특성, 쓰레드 함수, 쓰레드 함수 매개변수
     Pthread_create(&tid, NULL, thread, (void *)connfd);
@@ -114,8 +115,7 @@ void *thread(void *vargsp) {
   Close(connfd);
 }
 
-void doit(int connfd)
-{
+void doit(int connfd) {
   int end_serverfd;
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
   char endserver_http_header[MAXLINE];
@@ -132,13 +132,6 @@ void doit(int connfd)
 
   // 클라이언트의 요청 라인을 읽는다.
   sscanf(buf, "%s %s %s", method, uri, version);
-
-  if (!(strcasecmp(method, "GET") == 0 || strcasecmp(method, "HEAD") == 0))
-  {
-    clienterror(fd, method, "501", "Not impemented",
-                "Tiny does not implement this method");
-    return;
-  }
 
   if (strcasecmp(method, "GET")) {
     printf("Proxy does not implement the method");
